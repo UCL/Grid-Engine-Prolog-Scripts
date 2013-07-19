@@ -1,0 +1,11 @@
+#!/bin/bash 
+#Call with args SLOTS HOST COMMAND
+export SGE_HSLOTS="$1"
+shift
+if [ "x$1" = "x$(hostname -f)" ] 
+then
+	shift
+	exec "$@"
+else
+	exec /usr/bin/ssh "$@"
+fi

@@ -1,0 +1,11 @@
+#!/bin/bash
+[ "x$SGE_TASK_ID" = "xundefined"  ] && SGE_TASK_ID=1
+LOCKPREFIX="/cm/local/apps/sge/gpu"
+for N in 0 1 ; do
+ grep "^${SGE_O_LOGNAME} ${JOB_ID} ${SGE_TASK_ID} ${GPU}" ${LOCKPREFIX}${N} &> /dev/null
+ if [ "$?" -eq "0" ] ;
+ then
+  chgrp root /dev/nvidia${N}
+  rm -f ${LOCKPREFIX}${N}
+ fi
+done

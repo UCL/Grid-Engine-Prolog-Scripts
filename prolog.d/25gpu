@@ -1,0 +1,64 @@
+#!/bin/ksh
+
+GPU0="/cm/local/apps/sge/gpu0"
+GPU1="/cm/local/apps/sge/gpu1"
+
+[ "x$SGE_TASK_ID" = "xundefined"  ] && SGE_TASK_ID=1
+#SGE_GROUP=`awk -F'=' '/^add_grp_id/{print "SGE"$2}' /proc/${PPID}/cwd/config`
+SGE_GROUP=$(awk -F'=' '/^add_grp_id/{print "SGE"$2}' /cm/local/apps/sge/current/default/spool/$(hostname)/active_jobs/${JOB_ID}.${SGE_TASK_ID:-1}/config)
+
+TMPFILE=`mktemp /cm/local/apps/sge/gputemp.XXXXXX` || exit 99
+
+echo "${SGE_O_LOGNAME} ${JOB_ID} ${SGE_TASK_ID} ${GPU:=0} ${SGE_GROUP}" > ${TMPFILE}
+
+linkgpu() {
+ if [ "${GPU:=0}" -eq "2" ] ;
+ then
+  ln ${TMPFILE} ${GPU0}
+  if [ "$?" -ne "0" ] ;
+  then
+   echo "GPU=2, hardlinking ${GPU0} to ${TMPFILE} failed, requeuing"
+   return 99
+  else
+   ln ${TMPFILE} ${GPU1}
+   if [ "$?" -ne "0" ] ;
+   then
+    echo "GPU=2, hardlinking ${GPU1} to ${TMPFILE} failed, requeuing"
+    rm ${GPU0}
+    return 99
+   fi
+  fi
+  chgrp ${SGE_GROUP} /dev/nvidia0
+  chmod 660 /dev/nvidia0
+  chgrp ${SGE_GROUP} /dev/nvidia1
+  chmod 660 /dev/nvidia1
+ elif [ "${GPU:=0}" -eq "1" ] ;
+ then
+  if [ -e ${GPU0} ] ;
+  then
+   ln ${TMPFILE} ${GPU1}
+   if [ "$?" -ne "0" ] ;
+   then
+    echo "GPU=1, GPU0 busy, hardlinkink ${GPU1} to ${TMPFILE} failed, requeuing"
+    return 99
+   fi
+   chgrp ${SGE_GROUP} /dev/nvidia1
+   chmod 660 /dev/nvidia1
+  else
+   ln ${TMPFILE} ${GPU0}
+   if [ "$?" -ne "0" ] ;
+   then
+    echo "GPU=1, GPU0 free, hardlinking ${GPU0} to ${TMPFILE} failed, requeuing"
+    return 99
+   fi
+   chgrp ${SGE_GROUP} /dev/nvidia0
+   chmod 660 /dev/nvidia0
+  fi
+ fi
+}
+chmod -f 0660 /dev/nvidia[0-9]*
+chmod -f 0666 /dev/nvidiactl
+linkgpu
+RET=$?
+rm -f $TMPFILE
+exit $RET

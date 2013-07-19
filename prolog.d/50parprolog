@@ -1,0 +1,12 @@
+#!/bin/ksh
+REMOTE=/cm/shared/apps/sge/assist/bin/parprolog
+PDSHSLAVE=/cm/shared/apps/sge/assist/bin/pdshslave
+#REMOTE=/bin/true
+export SGE_UCL_USER=${USER}
+if [ -f /${PE_HOSTFILE} ] 
+then
+/usr/bin/pdsh -w $(awk '{print $2 "@" $1}'<${PE_HOSTFILE} |xargs|tr '\ ' ',' ) -R exec ${PDSHSLAVE} %u %h ${REMOTE}|grep 'pdshslave exited with exit code 99$' 2>&1 ||exit 0
+exit 99
+else
+exec ${PDSHSLAVE} 1 $(hostname -f) ${REMOTE} 
+fi

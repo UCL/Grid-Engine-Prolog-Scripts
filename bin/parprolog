@@ -1,0 +1,10 @@
+#!/bin/ksh
+PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+#set -x
+BASH_ENV=""
+export BASH_ENV
+SCRIPTTYPE=$(basename $0)
+for FILE in $(ls /cm/shared/apps/sge/assist/${SCRIPTTYPE}.d/*|sort)
+do
+	${FILE} || exit $?
+done
